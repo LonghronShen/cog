@@ -26,7 +26,7 @@ const bundledSchemaPy = ".cog/schema.py"
 // Build a Cog model from a config
 //
 // This is separated out from docker.Build(), so that can be as close as possible to the behavior of 'docker build'.
-func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache, separateWeights bool, useCudaBaseImage string, progressOutput string, schemaFile string, dockerfileFile string) error {
+func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache, push, separateWeights bool, useCudaBaseImage string, progressOutput string, schemaFile string, dockerfileFile string) error {
 	console.Infof("Building Docker image from environment in cog.yaml as %s...", imageName)
 
 	// remove bundled schema files that may be left from previous builds
@@ -38,7 +38,7 @@ func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache,
 		if err != nil {
 			return fmt.Errorf("Failed to read Dockerfile at %s: %w", dockerfileFile, err)
 		}
-		if err := docker.Build(dir, string(dockerfileContents), imageName, secrets, noCache, progressOutput); err != nil {
+		if err := docker.Build(dir, string(dockerfileContents), imageName, secrets, noCache, false, progressOutput); err != nil {
 			return fmt.Errorf("Failed to build Docker image: %w", err)
 		}
 	} else {
@@ -70,7 +70,7 @@ func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache,
 			cachedManifest, _ := weights.LoadManifest(weightsManifestPath)
 			changed := cachedManifest == nil || !weightsManifest.Equal(cachedManifest)
 			if changed {
-				if err := buildWeightsImage(dir, weightsDockerfile, imageName+"-weights", secrets, noCache, progressOutput); err != nil {
+				if err := buildWeightsImage(dir, weightsDockerfile, imageName+"-weights", secrets, noCache, false, progressOutput); err != nil {
 					return fmt.Errorf("Failed to build model weights Docker image: %w", err)
 				}
 				err := weightsManifest.Save(weightsManifestPath)
@@ -81,7 +81,7 @@ func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache,
 				console.Info("Weights unchanged, skip rebuilding and use cached image...")
 			}
 
-			if err := buildRunnerImage(dir, runnerDockerfile, dockerignore, imageName, secrets, noCache, progressOutput); err != nil {
+			if err := buildRunnerImage(dir, runnerDockerfile, dockerignore, imageName, secrets, noCache, false, progressOutput); err != nil {
 				return fmt.Errorf("Failed to build runner Docker image: %w", err)
 			}
 		} else {
@@ -89,7 +89,7 @@ func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache,
 			if err != nil {
 				return fmt.Errorf("Failed to generate Dockerfile: %w", err)
 			}
-			if err := docker.Build(dir, dockerfileContents, imageName, secrets, noCache, progressOutput); err != nil {
+			if err := docker.Build(dir, dockerfileContents, imageName, secrets, noCache, false, progressOutput); err != nil {
 				return fmt.Errorf("Failed to build Docker image: %w", err)
 			}
 		}
@@ -175,7 +175,7 @@ func Build(cfg *config.Config, dir, imageName string, secrets []string, noCache,
 		}
 	}
 
-	if err := docker.BuildAddLabelsAndSchemaToImage(imageName, labels, bundledSchemaFile, bundledSchemaPy); err != nil {
+	if err := docker.BuildAddLabelsAndSchemaToImage(imageName, labels, bundledSchemaFile, bundledSchemaPy, push); err != nil {
 		return fmt.Errorf("Failed to add labels to image: %w", err)
 	}
 	return nil
@@ -203,7 +203,7 @@ func BuildBase(cfg *config.Config, dir string, useCudaBaseImage string, progress
 	if err != nil {
 		return "", fmt.Errorf("Failed to generate Dockerfile: %w", err)
 	}
-	if err := docker.Build(dir, dockerfileContents, imageName, []string{}, false, progressOutput); err != nil {
+	if err := docker.Build(dir, dockerfileContents, imageName, []string{}, false, false, progressOutput); err != nil {
 		return "", fmt.Errorf("Failed to build Docker image: %w", err)
 	}
 	return imageName, nil
@@ -243,21 +243,21 @@ func gitTag(dir string) (string, error) {
 	return tag, nil
 }
 
-func buildWeightsImage(dir, dockerfileContents, imageName string, secrets []string, noCache bool, progressOutput string) error {
+func buildWeightsImage(dir, dockerfileContents, imageName string, secrets []string, noCache, push bool, progressOutput string) error {
 	if err := makeDockerignoreForWeightsImage(); err != nil {
 		return fmt.Errorf("Failed to create .dockerignore file: %w", err)
 	}
-	if err := docker.Build(dir, dockerfileContents, imageName, secrets, noCache, progressOutput); err != nil {
+	if err := docker.Build(dir, dockerfileContents, imageName, secrets, noCache, push, progressOutput); err != nil {
 		return fmt.Errorf("Failed to build Docker image for model weights: %w", err)
 	}
 	return nil
 }
 
-func buildRunnerImage(dir, dockerfileContents, dockerignoreContents, imageName string, secrets []string, noCache bool, progressOutput string) error {
+func buildRunnerImage(dir, dockerfileContents, dockerignoreContents, imageName string, secrets []string, noCache, push bool, progressOutput string) error {
 	if err := writeDockerignore(dockerignoreContents); err != nil {
 		return fmt.Errorf("Failed to write .dockerignore file with weights included: %w", err)
 	}
-	if err := docker.Build(dir, dockerfileContents, imageName, secrets, noCache, progressOutput); err != nil {
+	if err := docker.Build(dir, dockerfileContents, imageName, secrets, noCache, push, progressOutput); err != nil {
 		return fmt.Errorf("Failed to build Docker image: %w", err)
 	}
 	if err := restoreDockerignore(); err != nil {

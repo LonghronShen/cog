@@ -15,6 +15,7 @@ var buildTag string
 var buildSeparateWeights bool
 var buildSecrets []string
 var buildNoCache bool
+var buildPush bool
 var buildProgressOutput string
 var buildSchemaFile string
 var buildUseCudaBaseImage string
@@ -30,6 +31,7 @@ func newBuildCommand() *cobra.Command {
 	addBuildProgressOutputFlag(cmd)
 	addSecretsFlag(cmd)
 	addNoCacheFlag(cmd)
+	addPushFlag(cmd)
 	addSeparateWeightsFlag(cmd)
 	addSchemaFlag(cmd)
 	addUseCudaBaseImageFlag(cmd)
@@ -52,7 +54,7 @@ func buildCommand(cmd *cobra.Command, args []string) error {
 		imageName = config.DockerImageName(projectDir)
 	}
 
-	if err := image.Build(cfg, projectDir, imageName, buildSecrets, buildNoCache, buildSeparateWeights, buildUseCudaBaseImage, buildProgressOutput, buildSchemaFile, buildDockerfileFile); err != nil {
+	if err := image.Build(cfg, projectDir, imageName, buildSecrets, buildNoCache, buildPush, buildSeparateWeights, buildUseCudaBaseImage, buildProgressOutput, buildSchemaFile, buildDockerfileFile); err != nil {
 		return err
 	}
 
@@ -75,6 +77,10 @@ func addSecretsFlag(cmd *cobra.Command) {
 
 func addNoCacheFlag(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&buildNoCache, "no-cache", false, "Do not use cache when building the image")
+}
+
+func addPushFlag(cmd *cobra.Command) {
+	cmd.Flags().BoolVar(&buildPush, "push", false, "Push after build")
 }
 
 func addSeparateWeightsFlag(cmd *cobra.Command) {

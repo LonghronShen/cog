@@ -11,16 +11,16 @@ import (
 	"github.com/replicate/cog/pkg/util/console"
 )
 
-func Build(dir, dockerfile, imageName string, secrets []string, noCache bool, progressOutput string) error {
+func Build(dir, dockerfile, imageName string, secrets []string, noCache, push bool, progressOutput string) error {
 	var args []string
 
 	args = append(args,
-		"buildx", "build", "--load",
+		"buildx", "build",
 	)
 
 	if util.IsAppleSiliconMac(runtime.GOOS, runtime.GOARCH) {
 		// Fixes "WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested"
-		args = append(args, "--platform", "linux/amd64")
+		args = append(args, "--platform", "linux/amd64", "--load")
 	}
 
 	for _, secret := range secrets {
@@ -29,6 +29,10 @@ func Build(dir, dockerfile, imageName string, secrets []string, noCache bool, pr
 
 	if noCache {
 		args = append(args, "--no-cache")
+	}
+
+	if push {
+		args = append(args, "--push")
 	}
 
 	args = append(args,
@@ -49,16 +53,20 @@ func Build(dir, dockerfile, imageName string, secrets []string, noCache bool, pr
 	return cmd.Run()
 }
 
-func BuildAddLabelsAndSchemaToImage(image string, labels map[string]string, bundledSchemaFile string, bundledSchemaPy string) error {
+func BuildAddLabelsAndSchemaToImage(image string, labels map[string]string, bundledSchemaFile string, bundledSchemaPy string, push bool) error {
 	var args []string
 
 	args = append(args,
-		"buildx", "build", "--load",
+		"buildx", "build",
 	)
+
+	if push {
+		args = append(args, "--push")
+	}
 
 	if util.IsAppleSiliconMac(runtime.GOOS, runtime.GOARCH) {
 		// Fixes "WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested"
-		args = append(args, "--platform", "linux/amd64")
+		args = append(args, "--platform", "linux/amd64", "--load")
 	}
 
 	args = append(args,

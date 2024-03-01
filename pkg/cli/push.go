@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/replicate/cog/pkg/config"
-	"github.com/replicate/cog/pkg/docker"
 	"github.com/replicate/cog/pkg/global"
 	"github.com/replicate/cog/pkg/image"
 	"github.com/replicate/cog/pkg/util/console"
@@ -48,13 +47,10 @@ func push(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("To push images, you must either set the 'image' option in cog.yaml or pass an image name as an argument. For example, 'cog push r8.im/your-username/hotdog-detector'")
 	}
 
-	if err := image.Build(cfg, projectDir, imageName, buildSecrets, buildNoCache, buildSeparateWeights, buildUseCudaBaseImage, buildProgressOutput, buildSchemaFile, buildDockerfileFile); err != nil {
-		return err
-	}
+	exitStatus := image.Build(cfg, projectDir, imageName, buildSecrets, buildNoCache, false, buildSeparateWeights, buildUseCudaBaseImage, buildProgressOutput, buildSchemaFile, buildDockerfileFile)
 
 	console.Infof("\nPushing image '%s'...", imageName)
 
-	exitStatus := docker.Push(imageName)
 	if exitStatus == nil {
 		console.Infof("Image '%s' pushed", imageName)
 		replicatePrefix := fmt.Sprintf("%s/", global.ReplicateRegistryHost)
@@ -63,5 +59,6 @@ func push(cmd *cobra.Command, args []string) error {
 			console.Infof("\nRun your model on Replicate:\n    %s", replicatePage)
 		}
 	}
+
 	return exitStatus
 }
